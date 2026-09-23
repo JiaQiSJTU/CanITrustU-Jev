@@ -1,0 +1,84 @@
+{
+  "reference": "User screenshot: JevBench v1.2.5, 534 decisions; names are targets, not reproduced scores",
+  "models": {
+    "jev": {
+      "display_name": "Jev 1.13.0",
+      "backend": "jev_http",
+      "endpoint_env": "JEV_ENDPOINT",
+      "default_endpoint": "https://api.typesafe.ai/v1/systemone",
+      "request_model": "jev-1.13.0",
+      "key_env": "JEV_API_KEY",
+      "max_options": 255
+    },
+    "semif": {
+      "display_name": "SemIf (Qwen3.5-4B)",
+      "backend": "semif",
+      "request_model": "Qwen/Qwen3.5-4B",
+      "weights_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+      "integration_status": "source-checked native direct scorer; real weights not tested",
+      "max_options": 16,
+      "max_tokens": 4096
+    },
+    "djev": {
+      "display_name": "djev (Maisa, diffusion-gemma)",
+      "backend": "jev_http",
+      "endpoint_env": "DJEV_ENDPOINT",
+      "request_model": "jev-latest",
+      "key_env": "DJEV_API_KEY",
+      "integration_status": "requires deployment-specific model alias and compatibility check"
+    },
+    "laya": {
+      "display_name": "Laya",
+      "backend": "jev_http",
+      "endpoint_env": "LAYA_ENDPOINT",
+      "request_model": "jev-latest",
+      "integration_status": "pin screenshot-era base checkpoint; current router is not equivalent"
+    },
+    "open_alternative_jev": {
+      "display_name": "open-alternative-jev (Qwen3.5-4B)",
+      "backend": "python",
+      "weights": "Qwen/Qwen3.5-4B",
+      "max_options": 26,
+      "load_kwargs": {
+        "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+      },
+      "integration_status": "source-checked so1 native adapter; real weights not tested"
+    },
+    "system_one_open": {
+      "display_name": "system-one-open",
+      "backend": "system_one_http",
+      "request_model": "system-one-open",
+      "integration_status": "source-checked /decide translator; run identity must be pinned",
+      "endpoint_env": "SYSTEM_ONE_OPEN_ENDPOINT",
+      "max_options": 52
+    },
+    "openjev": {
+      "display_name": "OpenJev (razorback16)",
+      "backend": "jev_http",
+      "endpoint_env": "OPENJEV_ENDPOINT",
+      "request_model": "openjev-latest",
+      "integration_status": "self-hosted /v1/systemone; pin deployment revision"
+    },
+    "jeff": {
+      "display_name": "jeff",
+      "backend": "jev_http",
+      "endpoint_env": "JEFF_ENDPOINT",
+      "request_model": "jev-latest",
+      "integration_status": "self-hosted compatible service; pin checkpoint"
+    },
+    "kev_0_6b": {
+      "display_name": "kev 0.6B",
+      "backend": "bridge",
+      "command_env": "KEV_06_BRIDGE_ARGV",
+      "request_model": "kev-0.6b",
+      "integration_status": "historical exact checkpoint unresolved; do not replace with current 0.8B/4B"
+    },
+    "openjev_sglang": {
+      "display_name": "openjev-sglang",
+      "backend": "jev_http",
+      "endpoint_env": "OPENJEV_SGLANG_ENDPOINT",
+      "request_model": "jev-latest",
+      "integration_status": "Qwen3.6-35B-A3B service; confirm checkpoint and alias"
+    }
+  }
+}
