@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 import time
-from .base import parse_response
+from .base import CallFailure, parse_json_or_none, parse_response
 from src.dataset.schema import request
 
 class Bridge:
@@ -24,6 +24,18 @@ class Bridge:
         start = time.perf_counter()
         proc = subprocess.run(self.argv, input=json.dumps(request(record, self.model)), text=True,
                               capture_output=True, timeout=self.timeout, check=False)
+        text = proc.stdout or ''
+        parsed = parse_json_or_none(text)
         if proc.returncode:
-            raise RuntimeError('Local bridge failed with exit code ' + str(proc.returncode))
-        return parse_response(json.loads(proc.stdout), record['options'], time.perf_counter() - start)
+            raise CallFailure('Local bridge failed with exit code ' + str(proc.returncode), text, parsed)
+        try:
+            if not isinstance(parsed, dict):
+                raise ValueError('Bridge stdout was not a JSON object')
+            pred = parse_response(parsed, record['options'], time.perf_counter() - start)
+        except CallFailure:
+            raise
+        except Exception as e:
+            raise CallFailure(str(e), text, parsed) from None
+        pred.response_text = text
+        pred.raw = parsed
+        return pred

@@ -2,6 +2,8 @@
 *
 !/.gitignore
 !/README.md
+!/pyproject.toml
+!/uv.lock
 !/configs/
 /configs/*
 !/configs/models.json

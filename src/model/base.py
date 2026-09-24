@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import json
 import math
 from typing import Dict, Optional
 
@@ -11,6 +12,9 @@ class Prediction:
     served_model: str = ''
     usage: dict = field(default_factory=dict)
     raw: dict = field(default_factory=dict)
+    response_text: str = ''
+    response_status: Optional[int] = None
+    response_headers: dict = field(default_factory=dict)
 
 def parse_response(payload, options, elapsed=0.0):
     answer = payload['answers']['decision']
@@ -42,3 +46,40 @@ def parse_response(payload, options, elapsed=0.0):
 
 class NotApplicable(ValueError):
     """The selected backend cannot represent this decision."""
+
+
+class CallFailure(Exception):
+    """Provider call finished, but the body cannot be scored. The body is retained."""
+
+    def __init__(self, message, response_text='', response=None, response_status=None, response_headers=None):
+        super().__init__(message)
+        self.response_text = response_text or ''
+        self.response = response
+        self.response_status = response_status
+        self.response_headers = response_headers or {}
+
+
+def parse_json_or_none(text):
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
+
+
+def strict_json(value):
+    """JSON-safe copy. Non-finite floats stay recoverable instead of dropping the row."""
+    if value is None or isinstance(value, str) or isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if math.isnan(value):
+            return {'__nonfinite__': 'NaN'}
+        if math.isinf(value):
+            return {'__nonfinite__': 'Infinity' if value > 0 else '-Infinity'}
+        return value
+    if isinstance(value, dict):
+        return {str(k): strict_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [strict_json(v) for v in value]
+    return str(value)

@@ -23,7 +23,7 @@ for record in iter_records('data/final/versions.jsonl'):
 
 ## 运行
 
-Python 3.9+，mock 和 HTTP 适配器仅用标准库。从仓库根目录运行：
+Python 3.9+，mock 和 HTTP 适配器仅用标准库。评测进度用 tqdm，按每条样本更新。从仓库根目录运行：
 
 ```bash
 python3 -m unittest discover -s tests/runtime -v
@@ -35,11 +35,11 @@ python3 -m src.eval --model jev --input data/final/versions.jsonl --output resul
 python3 -m src.eval --model jev --input data/release --output results/jev-run-002
 ```
 
-`python3 -m src.eval.final` 是等价入口。省略 `--limit-bases` 表示全量；每道入选题始终评测六版本。真实 API 调用可能计费；mock 仅用于验证链路。输出目录不能重复使用。
+`python3 -m src.eval.final` 是等价入口。省略 `--limit-bases` 表示全量；每道入选题始终评测六版本。真实 API 调用可能计费；mock 仅用于验证链路。输出目录不能重复使用。加上 `--resume` 时，保留该目录里已经成功返回的预测，失败样本和尚未写完的版本重新请求。
 
-`configs/models.json` 配置截图中的 10 个目标。Jev 默认使用 `https://api.typesafe.ai/v1/systemone`，请求 `jev-1.13.0`，可通过 `JEV_ENDPOINT` 覆盖端点。其他 HTTP 目标需设置配置中指定的端点变量。SemIf/so1 原生适配器需自行安装其库与权重；kev 0.6B 通过用户提供的 JSON stdin/stdout bridge 接入。配置列出目标不代表其服务可用或已完成真实模型验证。
+`configs/models.json` 配置截图中的 10 个目标。Jev 默认使用 `https://api.typesafe.ai/v1/systemone`，请求 `jev-1.13.0`，可通过 `JEV_ENDPOINT` 覆盖端点。djev、system-one-open、OpenJev、openjev-sglang 仍走各自端点变量。SemIf、so1、Laya、Jeff、kev 0.6B 在进程内加载权重，不发 HTTP；对应库和权重要自行安装。配置列出目标不代表其服务可用或已完成真实模型验证。
 
-长轨迹可能超出某些模型上下文窗口；读取器不会截断。候选超限、调用或响应解析失败均记为错误并计入准确率分母，进程最终非零退出。当前入口为串行运行，不支持断点续跑。
+读取器不会截断。Jev 请求在发送前按 32,000 input tokens 预算做 left truncate：从早期历史删起，保留靠近决策点的后缀，并改写 `target_message_index`。其他模型仍可能因长轨迹超出窗口而失败。候选超限、调用或响应解析失败均记为错误并计入准确率分母，进程最终非零退出。当前入口为串行运行。`--resume` 从已有 `predictions.jsonl` 继续：保留 `status=ok` 的行，重跑失败和未完成样本。
 
 ## 指标与输出
 

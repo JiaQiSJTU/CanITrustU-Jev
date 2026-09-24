@@ -1,0 +1,10 @@
+[project]
+name = "canitrustu-jev"
+version = "0.1.0"
+description = "Jev-style decision model six-version classification evaluation"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["tqdm"]
+
+[tool.uv]
+package = false

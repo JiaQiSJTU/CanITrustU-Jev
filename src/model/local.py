@@ -1,7 +1,7 @@
 """Optional native library integration; weights are never installed by this project."""
 import json
 import time
-from .base import parse_response, NotApplicable
+from .base import CallFailure, parse_response, strict_json, NotApplicable
 
 class LocalLibrary:
     def __init__(self, config):
@@ -17,11 +17,20 @@ class LocalLibrary:
         state = record['state'] if isinstance(record['state'], str) else json.dumps(record['state'], ensure_ascii=False)
         start = time.perf_counter()
         d = self.engine.decide(state=state, questions=[self.Choice(record['instructions'], texts, name='decision')], mode='separate')[0]
+        snapshot = {'index': getattr(d, 'index', None),
+                    'probabilities': [float(p) for p in getattr(d, 'probabilities', [])],
+                    'confidence': None if getattr(d, 'confidence', None) is None else float(d.confidence)}
         if len(d.probabilities) != len(texts):
-            raise ValueError('so1 returned wrong probability count')
+            raise CallFailure('so1 returned wrong probability count', response=snapshot)
         answer = {'type': 'choice', 'choice': record['options'][d.index]['id'],
                   'probabilities': {o['id']: float(p) for o, p in zip(record['options'], d.probabilities)}, 'confidence': float(d.confidence)}
-        return parse_response({'model': self.model, 'answers': {'decision': answer}}, record['options'], time.perf_counter() - start)
+        payload = {'model': self.model, 'answers': {'decision': answer}, 'backend_metadata': snapshot}
+        try:
+            pred = parse_response(payload, record['options'], time.perf_counter() - start)
+        except Exception as e:
+            raise CallFailure(str(e), response=payload) from None
+        pred.response_text = json.dumps(strict_json(payload), ensure_ascii=False)
+        return pred
 
 class SemIf:
     def __init__(self, config):
@@ -42,9 +51,14 @@ class SemIf:
         start = time.perf_counter()
         out = self.score(self.model, self.tokenizer, row, self.metadata, self.max_tokens)
         if out['option_ids'] != [o['id'] for o in row['options']] or len(out['probabilities']) != len(row['options']):
-            raise ValueError('SemIf option alignment mismatch')
+            raise CallFailure('SemIf option alignment mismatch', response=out)
         probs = dict(zip(out['option_ids'], map(float, out['probabilities'])))
         answer = {'type': 'choice', 'choice': max(probs, key=probs.get), 'probabilities': probs}
         payload = {'model': self.model_id, 'answers': {'decision': answer}, 'usage': {'input_tokens': out['input_tokens']},
                    'backend_metadata': out}
-        return parse_response(payload, record['options'], time.perf_counter() - start)
+        try:
+            pred = parse_response(payload, record['options'], time.perf_counter() - start)
+        except Exception as e:
+            raise CallFailure(str(e), response=payload) from None
+        pred.response_text = json.dumps(strict_json(payload), ensure_ascii=False)
+        return pred
