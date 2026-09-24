@@ -2,7 +2,7 @@
 
 **CITY-Jev (Can I Trust You Jev)** asks a simple question: **fast decisions are useful, but can we trust them?** We evaluate [Jev-style System One models](https://typesafe.ai/blog/introducing-system-one-models-and-jev) at typical decision points in general agentic workflows: choosing an action, judging a step, verifying an outcome, assessing evidence, and checking safety. We test whether those decisions are correct, whether they hold up when inputs are reworded or reformatted, and how much confidence-based abstention helps.
 
-**Dataset (coming soon):** The evaluation data will be released on Hugging Face at [KikiNLP/CanITrustYou-Jev](https://huggingface.co/datasets/KikiNLP/CanITrustYou-Jev).
+[![🤗 Hugging Face Dataset: Coming Soon](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset%20%28Coming%20Soon%29-FFD21E?style=flat-square)](https://huggingface.co/datasets/KikiNLP/CanITrustYou-Jev)
 
 <p align="center">
   <img src="assets/city-jev-teaser.png" alt="CITY-Jev evaluates Jev-style models at five typical decision points in general agentic workflows: safety analysis, evidence assessment, action selection, process evaluation, and outcome verification. The workflow is illustrative; evaluation is at the decision level. Original and perturbed inputs are scored using Accuracy and Abstention-Aware Accuracy, with strict and mean aggregation." width="100%">
