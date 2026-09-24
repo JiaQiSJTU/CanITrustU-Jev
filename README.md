@@ -1,6 +1,6 @@
 # CITY-Jev: Evaluating Agent Execution Decisions Under Perturbations
 
-**CanITrustU-Jev** evaluates whether Jev-style decision models **consistently make correct decisions when the same question is expressed in different ways**.
+**CanITrustU-Jev** provides a quick, exploratory evaluation of **how Jev-style models perform on execution decisions in agent workflows**. It covers tasks such as choosing actions, assessing intermediate steps, verifying outcomes, and evaluating evidence and safety across different application scenarios. The goal is to understand where these models perform well, where they struggle, and how confidence-based abstention affects their reliability. Input perturbations provide an additional view of how sensitive their decisions are to changes in presentation.
 
 We transform 10 upstream data sources into a common candidate-selection format. Each question is evaluated with its original input and five perturbations, yielding **2,000 questions and 12,000 decision evaluations**. We report Accuracy and Abstention-Aware Accuracy by application scenario, decision task, answer format, and source dataset, using both worst-case and mean scores across the six inputs.
 
