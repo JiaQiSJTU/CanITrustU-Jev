@@ -1,8 +1,16 @@
 # CITY-Jev: Evaluating Agent Execution Decisions Under Perturbations
 
-**CanITrustYou-Jev** provides a quick, exploratory evaluation of **how Jev-style models perform on execution decisions in agent workflows**. It covers tasks such as choosing actions, assessing intermediate steps, verifying outcomes, and evaluating evidence and safety across different application scenarios. The goal is to understand where these models perform well, where they struggle, and how confidence-based abstention affects their reliability. Input perturbations provide an additional view of how sensitive their decisions are to changes in presentation.
+**CITY-Jev (Can I Trust You Jev)** asks a simple question: **fast decisions are useful, but can we trust them?** We evaluate [Jev-style System One models](https://typesafe.ai/blog/introducing-system-one-models-and-jev) at typical decision points in general agentic workflows: choosing an action, judging a step, verifying an outcome, assessing evidence, and checking safety. We test whether those decisions are correct, whether they hold up when inputs are reworded or reformatted, and how much confidence-based abstention helps.
 
-We transform 10 upstream data sources into a common candidate-selection format. Each question is evaluated with its original input and five perturbations, yielding **2,000 questions and 12,000 decision evaluations**. We report Accuracy and Abstention-Aware Accuracy by application scenario, decision task, answer format, and source dataset, using both worst-case and mean scores across the six inputs.
+<p align="center">
+  <img src="assets/city-jev-teaser.png" alt="CITY-Jev evaluates Jev-style models at five typical decision points in general agentic workflows: safety analysis, evidence assessment, action selection, process evaluation, and outcome verification. The workflow is illustrative; evaluation is at the decision level. Original and perturbed inputs are scored using Accuracy and Abstention-Aware Accuracy, with strict and mean aggregation." width="100%">
+</p>
+
+*Illustrative workflow. We evaluate adapted candidate-selection decisions using Accuracy and Abstention-Aware Accuracy, with strict (worst-case) and mean scores over the original input and all five perturbations.*
+
+**One question. Six input versions. Does the decision hold up?**
+
+We adapt **10 upstream data sources** into a common candidate-selection format: **2,000 original questions**, each paired with **five perturbations**, for **12,000 planned decision evaluations**. The perturbations change option order, option identifiers, state formatting, auxiliary context, or instruction wording, with the aim of preserving the correct answer. We report Accuracy and Abstention-Aware Accuracy using both **worst-case and mean scores** across the six inputs, broken down by application scenario, decision task, answer format, and source dataset.
 
 This is an independent evaluation of adapted tasks; its scores are not the official scores of the upstream benchmarks. The results below come from a single run of **Jev 1.13.0**. Configurations for other model adapters do not imply completed evaluations.
 

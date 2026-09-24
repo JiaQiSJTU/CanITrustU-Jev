@@ -1,7 +1,10 @@
-# Only evaluation runtime files are versioned. All datasets stay local.
+# Only evaluation runtime and documentation files are versioned. All datasets stay local.
 *
 !/.gitignore
 !/README.md
+!/assets/
+/assets/*
+!/assets/city-jev-teaser.png
 !/pyproject.toml
 !/uv.lock
 !/configs/
