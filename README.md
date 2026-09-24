@@ -1,56 +1,167 @@
-# CanITrustU-Jev
+# CITY-Jev: Evaluating Agent Execution Decisions Under Perturbations
 
-Jev 类决策模型的六版本分类评测。仓库仅包含数据读取、模型适配、评测代码及配置、测试；数据、权重、密钥、调研资料、生成代码和运行结果保留在本地。
+**CanITrustU-Jev** evaluates whether Jev-style decision models **consistently make correct decisions when the same question is expressed in different ways**.
 
-## 数据与读取
+We transform 10 upstream data sources into a common candidate-selection format. Each question is evaluated with its original input and five perturbations, yielding **2,000 questions and 12,000 decision evaluations**. We report Accuracy and Abstention-Aware Accuracy by application scenario, decision task, answer format, and source dataset, using both worst-case and mean scores across the six inputs.
 
-最终集为 2,000 道原题，每题原始版及 5 个扰动版，共 12,000 次评测。10 个来源覆盖工具调用、网页操作、轨迹判断、软件修复、长记忆、安全决策等场景。每条记录附带 `dataset`、`scenario`、`decision_type`、`tags`、`source`，通过 `base_id` 关联六版本。
+This is an independent evaluation of adapted tasks; its scores are not the official scores of the upstream benchmarks. The results below come from a single run of **Jev 1.13.0**. Configurations for other model adapters do not imply completed evaluations.
 
-版本依次为原始、选项逆序、选项 ID 替换、状态 JSON 格式化、无关上下文插入、指令释义。V4 正文已逐题由 gpt-5.6-luna 生成，无模板回退。运行时直接读取已准备好的版本，不重新生成扰动。
+> **Review status:** This project was developed primarily using automated tools, with partial human involvement and review. Its data transformations, perturbations, evaluation logic, reported results, and documentation require further verification. The current content should be considered preliminary.
 
-数据需另行放到本地，仓库不下载或提供数据。支持：
+## Data Sources
 
-- `data/final/versions.jsonl`，同目录可放冻结数据的 `manifest.json`。
-- `data/release/`，包含 `manifest.json` 和无损 gzip JSONL 分片，默认输入路径。清单格式为 `jev-release/gzip-jsonl-v1`，包含 `shards`（每片 path/records/sha256）、`original_samples`、`version_instances`、`stream_sha256`。
+Counts below refer to **original questions in this evaluation**, before excluding failed requests. They are not the sizes of the upstream datasets and do not necessarily represent independent trajectories. Links point to upstream projects or dataset repositories.
 
-```python
-from src.dataset.reader import iter_records
-for record in iter_records('data/final/versions.jsonl'):
-    print(record['base_id'], record['version'], record['gold'])
-```
+| Source | Dataset ID | Questions | Adapted Task and Answer Format | Ground-Truth Basis |
+|---|---|---:|---|---|
+| [AgentProcessBench](https://github.com/RUCBM/AgentProcessBench) | `agentprocess` | 450 | Process evaluation; fixed-category classification | Upstream step-level process-quality annotations |
+| [AgentRewardBench](https://huggingface.co/datasets/McGill-NLP/agent-reward-bench) | `agentreward` | 135 | Success, loop, or side-effect verification; yes/no judgment | Agreement among upstream annotations |
+| [BFCL](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard) | `bfcl` | 200 | Function selection; dynamic candidate selection | Correct-function labels from V4 multiple |
+| [Mind2Web](https://github.com/OSU-NLP-Group/Mind2Web) | `mind2web` | 203 | Web target selection; dynamic candidate selection | Upstream positive targets and negative candidates |
+| [WebLINX](https://github.com/McGill-NLP/weblinx) | `weblinx` | 49 | Web action selection with dialogue context; dynamic candidate selection | Upstream target-action annotations |
+| [SWE-agent trajectories](https://huggingface.co/datasets/nebius/SWE-agent-trajectories) | `swetraj` | 100 | Software repair outcome verification; yes/no judgment | Execution outcome labels attached to trajectories |
+| [LongMemEval](https://github.com/xiaowu0162/LongMemEval) | `longmemeval` | 250 | Whether evidence supports an answer; yes/no judgment | Oracle evidence and answerability annotations |
+| [AgentHarm](https://huggingface.co/datasets/ai-safety-institute/AgentHarm) | `agentharm` | 200 | Request safety analysis; yes/no judgment | Harmful / benign source labels |
+| [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) | `injecagent` | 250 | Injection attack type identification; fixed-category classification | Upstream attack-type annotations |
+| [WorkArena](https://github.com/ServiceNow/WorkArena) | `workarena` | 163 | Consistency between knowledge and an answer; yes/no judgment | Correct values from knowledge-task configurations and rule-generated incorrect values |
+| **Total** | | **2,000** | | |
 
-读取器流式解压，不需要将全部数据载入内存。分片哈希在评测前校验，完整遍历后校验解压内容哈希与记录数。旧 JSONL 有清单时也校验哈希。模型请求仅发送 state、instructions 与候选描述，不发送 gold、标签或来源注释。
+The `gold` answer comes from upstream annotations, execution outcomes, or verifiable rules applied to task configurations. Generative models are used for some expression perturbations, not to generate ground-truth answers. Sampling is limited to locally available data and does not cover every upstream dataset in full. Label distributions are not uniformly balanced.
 
-## 运行
+### Classification Dimensions
 
-Python 3.9+，mock 和 HTTP 适配器仅用标准库。评测进度用 tqdm，按每条样本更新。从仓库根目录运行：
+- **Application scenario:** business service interactions, information retrieval and knowledge QA, tool and API interactions, web and browser operations, and software development and repair. Both ordinary and dialogue-based web navigation fall under web and browser operations. AgentProcessBench is classified by its internal task domains.
+- **Decision task:** safety analysis, outcome verification, action selection, evidence assessment, and process evaluation.
+- **Answer format:** dynamic candidate selection, fixed-category classification, and yes/no judgment. All three use a candidate-selection interface.
+
+### Five Perturbations
+
+Each perturbation is applied independently to the original question. The aim is to change input expression while preserving the meaning of the correct answer.
+
+| Identifier | Perturbation | Input Change |
+|---|---|---|
+| `v0_original` | Original input | The original question in the common schema |
+| `v1_order` | Option order reversal | Reverse candidate IDs and their descriptions together |
+| `v2_label` | Option identifier replacement | Use opaque IDs and preserve original labels in nested descriptions, also changing the description structure |
+| `v3_format` | State formatting | Serialize the state as JSON text, changing formatting, quotation, or escaping |
+| `v4_context` | Irrelevant context insertion | Add auxiliary material about another case and instructions limiting the task scope; auxiliary text is generated per question |
+| `v5_paraphrase` | Instruction paraphrasing | Rewrite decision instructions while retaining the intended task |
+
+Generated context and paraphrases may introduce semantic deviations. The perturbations have not undergone exhaustive human verification of semantic equivalence.
+
+<!-- JEV-ROBUST-RESULTS:START -->
+## Results
+
+Model: `jev-1.13.0`. Confidence threshold: **0.5**.
+
+Of **2,000** original questions, **26** are excluded following **56** failed requests, leaving **1,974** questions and **11,844** decision evaluations. If any request fails or any prediction is missing for a question or its perturbations, the entire question is excluded from scoring.
+
+- **Per-decision Accuracy:** 1 if `choice == gold`, otherwise 0.
+- **Per-decision Abstention-Aware Accuracy:** 1 if the answer is correct or the API returns `confidence < 0.5`, otherwise 0. Low confidence is treated as abstention by an offline policy; confidence equal to the threshold is treated as answering.
+- **Strict score:** take the minimum score across the original input and five perturbations for each question, then average over included questions. All six decisions must pass for a question to score 1.
+- **Mean score:** average the six decision scores for each question, then average over included questions.
+
+The threshold of 0.5 follows an example in the [TypeSafe Confidence documentation](https://docs.typesafe.ai/confidence); it is not a mandatory universal threshold. We use the returned `confidence`, not the highest class probability. Abstention-Aware Accuracy is defined for this project and should be read alongside the abstention rate.
+
+Abstention rate across included decisions: **19.37%**.
+
+### By Application Scenario
+
+| Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Business Service Interactions | 158 | 0 | 50.63% | 53.59% | 62.66% | 67.72% |
+| Information Retrieval and Knowledge QA | 565 | 1 | 73.98% | 80.56% | 87.96% | 91.45% |
+| Tool and API Interactions | 789 | 0 | 81.50% | 84.37% | 88.72% | 91.21% |
+| Web and Browser Operations | 362 | 25 | 70.72% | 75.87% | 83.98% | 89.64% |
+| Software Development and Repair | 100 | 0 | 74.00% | 77.67% | 84.00% | 84.67% |
+| Overall | 1974 | 26 | 74.52% | 78.92% | 85.31% | 88.78% |
+
+### By Decision Task
+
+| Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Safety Analysis | 450 | 0 | 84.22% | 87.78% | 90.89% | 93.15% |
+| Outcome Verification | 229 | 6 | 74.24% | 78.97% | 82.10% | 85.01% |
+| Action Selection | 433 | 19 | 83.14% | 85.80% | 92.38% | 95.73% |
+| Evidence Assessment | 413 | 0 | 83.78% | 89.43% | 92.98% | 95.92% |
+| Process Evaluation | 449 | 1 | 48.11% | 53.71% | 67.48% | 73.05% |
+| Overall | 1974 | 26 | 74.52% | 78.92% | 85.31% | 88.78% |
+
+### By Answer Format
+
+| Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Dynamic Candidate Selection | 433 | 19 | 83.14% | 85.80% | 92.38% | 95.73% |
+| Fixed-Category Classification | 699 | 1 | 61.95% | 66.48% | 76.11% | 80.33% |
+| Yes/No Judgment | 842 | 6 | 80.52% | 85.71% | 89.31% | 92.22% |
+| Overall | 1974 | 26 | 74.52% | 78.92% | 85.31% | 88.78% |
+
+### By Source Dataset
+
+| Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| agentharm | 200 | 0 | 81.00% | 85.75% | 90.00% | 92.83% |
+| agentprocess | 449 | 1 | 48.11% | 53.71% | 67.48% | 73.05% |
+| agentreward | 129 | 6 | 74.42% | 79.97% | 80.62% | 85.27% |
+| bfcl | 200 | 0 | 100.00% | 100.00% | 100.00% | 100.00% |
+| injecagent | 250 | 0 | 86.80% | 89.40% | 91.60% | 93.40% |
+| longmemeval | 250 | 0 | 73.20% | 82.53% | 88.40% | 93.27% |
+| mind2web | 184 | 19 | 79.89% | 84.78% | 92.93% | 96.65% |
+| swetraj | 100 | 0 | 74.00% | 77.67% | 84.00% | 84.67% |
+| weblinx | 49 | 0 | 26.53% | 31.63% | 59.18% | 74.83% |
+| workarena | 163 | 0 | 100.00% | 100.00% | 100.00% | 100.00% |
+| Overall | 1974 | 26 | 74.52% | 78.92% | 85.31% | 88.78% |
+
+<!-- JEV-ROBUST-RESULTS:END -->
+
+## Running the Evaluation
+
+### 1. Environment Setup
+
+Python 3.9+ is required. From the repository root, create a virtual environment and install all dependencies needed for Jev evaluation:
 
 ```bash
-python3 -m unittest discover -s tests/runtime -v
-python3 -m src.eval --model mock --input data/final/versions.jsonl --limit-bases 10
-
-export JEV_API_KEY='你的密钥'
-python3 -m src.eval --model jev --input data/final/versions.jsonl --output results/jev-run-001
-# 使用本地压缩分片：
-python3 -m src.eval --model jev --input data/release --output results/jev-run-002
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install tqdm
 ```
 
-`python3 -m src.eval.final` 是等价入口。省略 `--limit-bases` 表示全量；每道入选题始终评测六版本。真实 API 调用可能计费；mock 仅用于验证链路。输出目录不能重复使用。加上 `--resume` 时，保留该目录里已经成功返回的预测，失败样本和尚未写完的版本重新请求。
+### 2. Jev Evaluation Command
 
-`configs/models.json` 配置截图中的 10 个目标。Jev 默认使用 `https://api.typesafe.ai/v1/systemone`，请求 `jev-1.13.0`，可通过 `JEV_ENDPOINT` 覆盖端点。djev、system-one-open、OpenJev、openjev-sglang 仍走各自端点变量。SemIf、so1、Laya、Jeff、kev 0.6B 在进程内加载权重，不发 HTTP；对应库和权重要自行安装。配置列出目标不代表其服务可用或已完成真实模型验证。
+```bash
+export JEV_API_KEY='replace-with-your-api-key'
+python -m src.eval --model jev --input data/final/versions.jsonl
+```
 
-读取器不会截断。Jev 请求在发送前按 32,000 input tokens 预算做 left truncate：从早期历史删起，保留靠近决策点的后缀，并改写 `target_message_index`。其他模型仍可能因长轨迹超出窗口而失败。候选超限、调用或响应解析失败均记为错误并计入准确率分母，进程最终非零退出。当前入口为串行运行。`--resume` 从已有 `predictions.jsonl` 继续：保留 `status=ok` 的行，重跑失败和未完成样本。
+### 3. Notes
 
-## 指标与输出
+- Prepare evaluation data separately. `--input` accepts a JSONL file or a directory containing gzip JSONL shards and a `manifest.json`.
+- By default, all questions are evaluated with their five perturbations. Use `--limit-bases 10` to evaluate 10 questions first.
+- Jev is accessed through an API; no model weights need to be downloaded. The default model is `jev-1.13.0`. Override the endpoint with `JEV_ENDPOINT`; see [configs/models.json](configs/models.json) for configuration.
+- Input truncation is disabled by default. Set `"max_input_tokens": 32000` in the model configuration to enable an input budget, removing earlier history while preserving content near the decision point.
+- Run `python -m src.eval --help` for additional arguments. Local inference dependencies for other models must be installed separately for their respective adapters.
 
-每次运行产生 `run.json`（配置与输入/代码哈希）、`predictions.jsonl`（逐条预测）、`metrics.json`：
+## Scope and Limitations
 
-- 分版本准确率，以及按来源、场景和决策类型分组统计。
-- 整体准确率：正确实例数 /（原题数 × 6）。
-- 全版本正确率：六个版本全部正确的原题数 / 原题数。
+- These scores measure adapted candidate-selection decisions, not end-to-end agent success. BFCL measures function selection only; Mind2Web uses candidate sets containing the correct target; WorkArena measures knowledge-value consistency without executing browser tasks.
+- LongMemEval uses oracle evidence and does not measure full long-context retrieval. The InjecAgent samples contain known attacks, so they cannot establish false-positive rates on benign inputs.
+- Source sizes and label distributions differ. Overall scores are weighted by question count. Multiple questions may share a trajectory or underlying problem and should not be treated as fully independent samples.
+- Input truncation was not enabled for this evaluation. Of the 26 questions excluded due to failed requests, 25 belong to web and browser operations. The tables describe performance on the included questions.
+- Abstention-Aware Accuracy gives full credit for either a correct answer or low-confidence abstention. Interpret it together with Accuracy, the abstention rate, and the confidence threshold. Results come from one run and do not include uncertainty estimates across repeated runs.
 
-缺失版本及失败调用不能算对。另提供概率校准、延迟与扰动前后配对统计；成本未测量，不复现截图排行榜的综合分。模拟结果不能代表模型能力。
+## Citation and Acknowledgments
 
-## 目录
+If you use this project's methods, code, or results, you can cite the repository:
 
-`src/dataset/`：统一 schema、读取与完整性校验；`src/model/`：模型适配及注册；`src/eval/`：评测入口和指标；`tests/runtime/`：不依赖真实数据、权重或网络的测试。
+```bibtex
+@misc{canitrustujev2026,
+  author       = {{CanITrustU-Jev}},
+  title        = {CITY-Jev: Evaluating Agent Execution Decisions Under Perturbations},
+  year         = {2026},
+  howpublished = {\url{https://github.com/JiaQiSJTU/CanITrustU-Jev}},
+  note         = {GitHub repository}
+}
+```
+
+This project builds on the 10 upstream sources listed above. When using their data or adapted examples, also cite the relevant upstream projects or papers and follow their respective licenses and usage terms. Citing this repository does not replace upstream attribution. The confidence-based abstention policy draws on the [TypeSafe Confidence documentation](https://docs.typesafe.ai/confidence).
