@@ -68,7 +68,7 @@ Abstention rate across included decisions: **19.37%**.
 ### By Application Scenario
 
 | Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---:|---:|---:|---:|---:|---:|
 | Business Service Interactions | 158 | 0 | 50.63% | 53.59% | 62.66% | 67.72% |
 | Information Retrieval and Knowledge QA | 565 | 1 | 73.98% | 80.56% | 87.96% | 91.45% |
 | Tool and API Interactions | 789 | 0 | 81.50% | 84.37% | 88.72% | 91.21% |
@@ -79,7 +79,7 @@ Abstention rate across included decisions: **19.37%**.
 ### By Decision Task
 
 | Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---:|---:|---:|---:|---:|---:|
 | Safety Analysis | 450 | 0 | 84.22% | 87.78% | 90.89% | 93.15% |
 | Outcome Verification | 229 | 6 | 74.24% | 78.97% | 82.10% | 85.01% |
 | Action Selection | 433 | 19 | 83.14% | 85.80% | 92.38% | 95.73% |
@@ -90,7 +90,7 @@ Abstention rate across included decisions: **19.37%**.
 ### By Answer Format
 
 | Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---:|---:|---:|---:|---:|---:|
 | Dynamic Candidate Selection | 433 | 19 | 83.14% | 85.80% | 92.38% | 95.73% |
 | Fixed-Category Classification | 699 | 1 | 61.95% | 66.48% | 76.11% | 80.33% |
 | Yes/No Judgment | 842 | 6 | 80.52% | 85.71% | 89.31% | 92.22% |
@@ -99,7 +99,7 @@ Abstention rate across included decisions: **19.37%**.
 ### By Source Dataset
 
 | Category | Included Questions | Excluded Questions | Strict Accuracy | Mean Accuracy | Strict Abstention-Aware Accuracy | Mean Abstention-Aware Accuracy |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---:|---:|---:|---:|---:|---:|
 | agentharm | 200 | 0 | 81.00% | 85.75% | 90.00% | 92.83% |
 | agentprocess | 449 | 1 | 48.11% | 53.71% | 67.48% | 73.05% |
 | agentreward | 129 | 6 | 74.42% | 79.97% | 80.62% | 85.27% |
