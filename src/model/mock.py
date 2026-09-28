@@ -1,5 +1,5 @@
 """Deterministic pipeline sanity check. This is NOT a Jev performance baseline."""
-from .base import Prediction
+from .model_utils import Prediction
 
 class Mock:
     def predict(self, record):

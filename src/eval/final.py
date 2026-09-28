@@ -14,8 +14,8 @@ import time
 
 from tqdm import tqdm
 
-from src.model.base import strict_json
-from src.model.registry import load_model
+from src.model.model_utils import strict_json
+from src.model.registry import load_model, effective_config
 from src.dataset.reader import inspect_input, iter_records
 from .final_metrics import VERSIONS, final_report
 
@@ -112,26 +112,38 @@ def main():
     args=p.parse_args()
     if args.limit_bases<0:p.error('limit must be nonnegative')
     config=json.loads(args.models_config.read_text())
-    model,entry=load_model(args.model,config)
+    entry=effective_config(args.model,config)
+    manifest,input_sha=inspect_input(args.input)
+    identity={"model": args.model, "model_config": entry, "input_sha256": input_sha,
+              "limit_bases": args.limit_bases, "expected_versions": VERSIONS}
     output=args.output or Path('results')/('final-'+args.model+'-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
-    output.mkdir(parents=True,exist_ok=True)
     pred_path=output/'predictions.jsonl'
     kept=[]
     if args.resume:
         if not pred_path.exists():p.error('Nothing to resume')
+        run_path=output/'run.json'
+        if not run_path.exists():p.error('Cannot resume without run.json identity')
+        previous=json.loads(run_path.read_text())
+        if previous.get('identity') != identity:
+            p.error('Resume identity mismatch or missing identity: model, effective config, input hash, and sample limit must match; use a new output directory')
         kept=kept_ok(read_prediction_rows(pred_path))
-        rewrite_predictions(pred_path, kept)
         print(f'resume kept {len(kept)} returned rows; rerunning failures and missing versions',flush=True)
     elif pred_path.exists():p.error('Output exists; choose a new directory or pass --resume')
-    manifest,input_sha=inspect_input(args.input)
+    model,entry=load_model(args.model,config)
+    runtime_context = getattr(model, 'context', None)
+    if args.resume and previous.get('runtime_context') != runtime_context:
+        p.error('Resume runtime context mismatch; use a new output directory')
+    output.mkdir(parents=True,exist_ok=True)
+    if args.resume:rewrite_predictions(pred_path, kept)
     run={'created_at':datetime.now(timezone.utc).isoformat(),'model':args.model,'model_config':entry,
-         'mock':args.model=='mock','input':str(args.input),'input_sha256':input_sha,'python':platform.python_version(),
+         'identity':identity,'mock':args.model=='mock','input':str(args.input),'input_sha256':input_sha,'python':platform.python_version(),
          'limit_bases':args.limit_bases,'expected_versions':VERSIONS,'cost':'not measured',
          'source_hashes':{str(f):file_hash(f) for f in sorted(Path('src').rglob('*.py'))}}
     if args.resume and (output/'run.json').exists():
         previous=json.loads((output/'run.json').read_text())
         if isinstance(previous,dict) and previous.get('created_at'):run['created_at']=previous['created_at']
         run['resumed_at']=datetime.now(timezone.utc).isoformat()
+    run['runtime_context'] = runtime_context
     run['resume_kept_ok']=len(kept)
     (output/'run.json').write_text(json.dumps(run,indent=2)+'\n')
     done={(row['base_id'],row['version']):row for row in kept}

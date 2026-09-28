@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from src.eval.final import append_prediction, attach_provider_return
-from src.model.base import CallFailure, Prediction
+from src.model.model_utils import CallFailure, Prediction
 
 
 class PersistTests(unittest.TestCase):

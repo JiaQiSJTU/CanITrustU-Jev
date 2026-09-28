@@ -76,6 +76,28 @@ class ResumeTests(unittest.TestCase):
             self.assertIn('resumed_at', resumed)
             self.assertEqual(resumed['resume_kept_ok'], 1)
 
+    def test_identity_mismatch_does_not_load_or_modify(self):
+        for field, value in [('model', 'jev'), ('input_sha256', 'changed'),
+                             ('model_config', {'backend': 'other'}), ('limit_bases', 10)]:
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as d:
+                root = Path(d)
+                data = root / 'versions.jsonl'
+                data.write_text(''.join(json.dumps(record(v)) + '\n' for v in ('v0_original', 'v1_order')))
+                output = root / 'out'
+                argv = ['eval', '--model', 'mock', '--input', str(data), '--output', str(output)]
+                with patch('sys.argv', argv):
+                    main()
+                path = output / 'run.json'
+                run = json.loads(path.read_text())
+                run['identity'][field] = value
+                path.write_text(json.dumps(run))
+                before = {p.name: p.read_bytes() for p in output.iterdir()}
+                with patch('sys.argv', argv + ['--resume']), patch('src.eval.final.load_model') as load:
+                    with self.assertRaises(SystemExit):
+                        main()
+                    load.assert_not_called()
+                self.assertEqual(before, {p.name: p.read_bytes() for p in output.iterdir()})
+
     def test_existing_output_still_requires_resume(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

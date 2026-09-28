@@ -1,0 +1,10 @@
+FROM lmsysorg/sglang:v0.5.19-cu130
+WORKDIR /app
+COPY openjev_sglang/ /app/
+# Isolate the API's dependencies from the pinned CUDA/SGLang interpreter.
+RUN /opt/sglang/bin/python -m pip install --no-cache-dir uv==0.12.5 \
+    && uv sync --frozen --no-default-groups --python 3.12
+ENV OPENJEV_HOST=0.0.0.0 OPENJEV_PORT=8080 \
+    OPENJEV_MODEL=/weights OPENJEV_SGLANG_PYTHON=/opt/sglang/bin/python \
+    OPENJEV_SERVED_MODEL_NAME=Qwen/Qwen3.6-35B-A3B
+ENTRYPOINT ["/app/.venv/bin/openjev", "serve"]

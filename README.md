@@ -149,15 +149,80 @@ python -m src.eval --model jev --input data/final/versions.jsonl
 - Prepare evaluation data separately. `--input` accepts a JSONL file or a directory containing gzip JSONL shards and a `manifest.json`.
 - By default, all questions are evaluated with their five perturbations. Use `--limit-bases 10` to evaluate 10 questions first.
 - Jev is accessed through an API; no model weights need to be downloaded. The default model is `jev-1.13.0`. Override the endpoint with `JEV_ENDPOINT`; see [configs/models.json](configs/models.json) for configuration.
-- Input truncation is disabled by default. Set `"max_input_tokens": 32000` in the model configuration to enable an input budget, removing earlier history while preserving content near the decision point.
+- The current Jev configuration enables an estimated 32,000-token input budget (`"max_input_tokens": 32000`), removing earlier history and, when necessary, trimming text while preserving content near the decision point. Set this value to `null` to disable truncation.
 - Run `python -m src.eval --help` for additional arguments. Local inference dependencies for other models must be installed separately for their respective adapters.
+
+### Model Scripts and Resume Safety
+
+djev, OpenJev and OpenJev SGLang now call their unchanged, commit-pinned upstream API servers on localhost. Prompt construction, question-ID mapping, canvas sizing, random seeds, sampling, logprob readout and confidence computation run in the upstream code. djev and OpenJev use vLLM; OpenJev SGLang uses its native SGLang launcher and Rust frontend. The default configurations no longer use the handwritten in-process diffusion/SGLang implementations. Those implementations remain available only through explicitly configured experimental `diffusion` / `sglang` backends.
+
+`configs/upstream_sources.json` pins and hashes the upstream sources. OpenJev builds its original Dockerfiles, including its vLLM patches at commit `1b3b88ec2b7457aa030db4d0e7d8aaf04f6d0fb8`. djev uses that compatible structured-diffusion engine revision (djev documents the required vLLM feature, but does not pin an engine commit). SGLang uses the upstream `lmsysorg/sglang:v0.5.19-cu130` image and frozen API dependency lock. Image tags and system package repositories are not immutable; each actual launch records the resulting image ID.
+
+Machine-specific evaluation shell scripts stay local and are not versioned. The portable server scripts below are versioned. Set the corresponding weight environment variable to your checkpoint directory (or pass `--weights` when serving). An optional ignored `configs/local_backend_weights.json` maps model names to local weight directories for the server launcher.
+
+From the repository root, build once, then start the selected backend in the foreground:
+
+```bash
+# djev: terminal 1
+export DJEV_WEIGHTS=/path/to/diffusiongemma-checkpoint
+bash script/serve_djev.sh --build
+bash script/serve_djev.sh
+# After the API is ready, terminal 2
+.venv/bin/python -m src.eval --model djev --input data/final/versions.jsonl --output results/djev-run --limit-bases 10
+```
+
+| Model | Build once | Start backend | Run evaluation | Port / endpoint override |
+| --- | --- | --- | --- | --- |
+| djev | `bash script/serve_djev.sh --build` | `bash script/serve_djev.sh` | `bash script/djev.sh` | 8011 / `DJEV_ENDPOINT` |
+| OpenJev | `bash script/serve_openjev.sh --build` | `bash script/serve_openjev.sh` | `bash script/openjev.sh` | 8012 / `OPENJEV_ENDPOINT` |
+| OpenJev SGLang | `bash script/serve_openjev_sglang.sh --build` | `bash script/serve_openjev_sglang.sh` | `bash script/openjev_sglang.sh` | 8013 / `OPENJEV_SGLANG_ENDPOINT` |
+
+These commands require Docker with NVIDIA GPU support, compatible CUDA 13 drivers/hardware for the upstream images, and the configured local checkpoints. NVFP4 backends retain upstream hardware requirements. The build step downloads sources, images and dependencies. Servers bind to loopback with `/v1/systemone` endpoints. Use `--dry-run` (also with `--build`) to inspect commands without building or starting anything. Startup accepts `--gpus device=0`, `--port 8011`, and `--weights /absolute/checkpoint/path`; weight environment variables are also accepted. Set the weight variable in both terminals. Use the same weight environment override for serving and evaluation so the recorded evaluation identity describes the mounted checkpoint. Changing a port requires the corresponding evaluation endpoint override. Wait for the upstream API startup/health check before evaluating; the launcher does not signal readiness itself.
+
+The intentional inference-budget exception remains `model_max`: the launcher reads the local checkpoint's backbone limit and passes it to vLLM/SGLang. SGLang's total request budget accommodates prefix warmup plus the single question branch; the original server retains its input validation and output reservations. Other inference defaults remain upstream-owned. Container launch specifications, checkpoint config hashes and actual image IDs are saved under `results/backend-launches/`; these files describe launch attempts, not successful health checks. The HTTP client cannot independently attest the code or weights behind a manually overridden endpoint.
+
+OpenJev retains its entropy-based confidence, independently of djev's confidence policy. The evaluator preserves returned probabilities and confidence without recomputation. `open_alternative_jev` uses native `mode: packed`. Changed backend types and upstream commits are included in resume identity, so results made with the earlier in-process backends require a new output directory.
+
+Evaluation adapters live in `src/model`, with one file per model or inference method:
+
+| Model / method | Module |
+| --- | --- |
+| Jev HTTP | `jev.py` |
+| SemIf | `semif.py` |
+| Laya | `laya.py` |
+| Jeff | `jeff.py` |
+| Kev | `kev.py` |
+| open-alternative-jev | `open_alternative_jev.py` |
+| djev | `djev.py` |
+| OpenJev | `openjev.py` |
+| OpenJev SGLang | `openjev_sglang.py` |
+| System One-compatible HTTP protocol | `system_one_open.py` |
+| Subprocess bridge / mock | `bridge.py` / `mock.py` |
+
+`model_utils.py` contains shared prediction types, errors, probability validation, response persistence helpers, context trimming, environment/path helpers, and token/text utilities. Model-specific prompt construction and inference helpers stay with their adapter. `registry.py` selects adapters and resolves effective configuration; heavyweight inference dependencies are imported only when constructing or running the selected adapter. The former `base.py`, `context.py`, `weights.py`, `local.py`, and `local_open.py` have been replaced; Python callers should use the modules above. CLI model names are unchanged; effective configuration changes intentionally invalidate incompatible resumes.
+
+Run `bash script/<model>.sh` from the repository root. Each script activates its environment and directly executes its Python interpreter (`"$VIRTUAL_ENV/bin/python"`); the `uv` executable is not required at runtime: Jev, djev, Laya, open-alternative-jev, OpenJev and Kev use `.venv`; SemIf uses `.venv-semif`, Jeff uses `.venv-jeff`, and openjev-sglang uses `.venv` for its HTTP client. The three served backends keep their inference dependencies in Docker. Install the corresponding inference dependencies in these environments beforehand; activation does not install them.
+
+Set `JEV_API_KEY` externally before running `bash script/jev.sh`; the script preserves it. Jeff uses the local Qwen3-4B-Instruct-2507 base and `GestaltLabs/Jeff-1` from the Hub by default; set `JEFF_WEIGHTS` to a downloaded Jeff-1 adapter directory to use local weights. SemIf and open-alternative-jev use the local `Qwen/Qwen3.5-4B` snapshot `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`, matching [SemIf's pinned direct-logit baseline](https://github.com/TheoLeeCJ/SemIf-OpenJev/blob/master/THIRD_PARTY.md) and the model used by the [official open-alternative-jev 4B demo](https://huggingface.co/spaces/IkerMoel/open-alternative-jev/blob/main/README.md). The latter library also supports other models; this configuration targets its 4B reference, not its Qwen3.6-27B benchmark. Override the local path with `SEMIF_MODEL` or `SO1_WEIGHTS` only when intentionally changing the checkpoint; the effective configuration is recorded for resume checks.
+
+All local adapters default to `context_policy: model_max`: they read the actual loaded text backbone's context limit (including nested `text_config`) instead of using fixed 2K/4K/8K defaults. Tokenizer sentinel lengths and unconfigured RoPE extensions are not treated as supported context. Laya applies the encoder limit to its total sequence budget and retains its separate head budget; Jeff updates the native client's prompt limit and reserves label tokens when sequence readout is needed; SemIf passes the resolved limit to its scorer. The so1 adapter checks the fully rendered prompt. The three upstream services enforce their own request budgets after the launcher sets the backbone context limit. Optional numeric `max_len` (Laya/Kev) or `max_tokens` (other local adapters) overrides must fit within the resolved maximum.
+
+Kev uses the loaded backbone's position limit as its total state-plus-question row budget. It measures the instruction and option branch first, reserves that space, and truncates the state to the remainder. Per-prediction context metadata records the branch size, state budget, and whether truncation occurred. The upstream packed-sequence threshold remains unchanged, so longer requests use Kev's causal-row inference path.
+
+For in-process native adapters, the resolved backbone limit, reserved tokens, and input budget are saved as `runtime_context` in `run.json`; Jeff also records its per-question label reservation in response metadata. Resume rejects a changed resolved context before rewriting predictions, and runs created under the earlier fixed-limit configuration require a new output directory. For served backends, use the separate backend launch manifest to audit actual context settings; the HTTP client does not populate `runtime_context`. These are checkpoint-supported limits, not measured guarantees that the current GPU can fit a maximum-length input. HTTP Jev retains its separate configured input budget.
+
+Scripts accept additional CLI arguments, for example `bash script/semif.sh --limit-bases 10`. Resume with `--output <existing-directory> --resume`. Before loading a model or rewriting predictions, the evaluator checks the model, effective configuration (including non-secret environment overrides), input hash, version set, and sample limit. Older runs without this identity record cannot be resumed automatically; use a new output directory. API keys are not stored in the identity.
+
+Metrics exclude an entire question if any of its six predictions is missing or failed. Abstention metrics use returned provider confidence, strictly below 0.5; if any included decision lacks confidence, these metrics are `null` rather than substituting class probabilities.
+
+All adapters share an option-count-aware probability-sum check: the default tolerance is `K * 0.00005 + 1e-12` for `K` options, allowing independent rounding to four decimal places. This is a validation policy, not an assumption that every provider actually rounds its output; adapters can specify a finer known precision. Precision is never inferred from response values. The supported range is 2–255 options (maximum default tolerance 0.01275). Probabilities and raw responses are preserved without renormalization. Missing options, non-finite or out-of-range probabilities, non-maximal choices, and invalid confidence remain errors. Failures report the sum, option count, and tolerance. Existing results are not rewritten automatically; resume retries failed predictions under the updated validation policy.
 
 ## Scope and Limitations
 
 - These scores measure adapted candidate-selection decisions, not end-to-end agent success. BFCL measures function selection only; Mind2Web uses candidate sets containing the correct target; WorkArena measures knowledge-value consistency without executing browser tasks.
 - LongMemEval uses oracle evidence and does not measure full long-context retrieval. The InjecAgent samples contain known attacks, so they cannot establish false-positive rates on benign inputs.
 - Source sizes and label distributions differ. Overall scores are weighted by question count. Multiple questions may share a trajectory or underlying problem and should not be treated as fully independent samples.
-- Input truncation was not enabled for this evaluation. Of the 26 questions excluded due to failed requests, 25 belong to web and browser operations. The tables describe performance on the included questions.
+- Input truncation was enabled with an estimated 32,000-token budget for this evaluation; 1,573 of the 12,000 prediction records contain actual truncation metadata. Of the 26 questions excluded due to failed requests, 25 belong to web and browser operations. The tables describe performance on the included questions.
 - Abstention-Aware Accuracy gives full credit for either a correct answer or low-confidence abstention. Interpret it together with Accuracy, the abstention rate, and the confidence threshold. Results come from one run and do not include uncertainty estimates across repeated runs.
 
 ## Citation and Acknowledgments

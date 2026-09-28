@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 import time
-from .base import CallFailure, parse_json_or_none, parse_response
+from .model_utils import CallFailure, parse_json_or_none, parse_response
 from src.dataset.schema import request
 
 class Bridge:

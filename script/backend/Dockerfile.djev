@@ -1,0 +1,7 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+WORKDIR /djev
+COPY djev/structured_server.py /djev/structured_server.py
+RUN uv pip install --python /opt/venv/bin/python pybase64
+COPY djev-entrypoint.sh /djev/entrypoint.sh
+ENTRYPOINT ["bash", "/djev/entrypoint.sh"]

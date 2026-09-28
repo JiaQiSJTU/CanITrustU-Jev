@@ -8,31 +8,45 @@
       "default_endpoint": "https://api.typesafe.ai/v1/systemone",
       "request_model": "jev-1.13.0",
       "key_env": "JEV_API_KEY",
-      "max_options": 255
+      "max_options": 255,
+      "max_input_tokens": 32000
     },
     "semif": {
       "display_name": "SemIf (Qwen3.5-4B)",
       "backend": "semif",
       "request_model": "Qwen/Qwen3.5-4B",
       "weights_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
-      "integration_status": "source-checked native direct scorer; real weights not tested",
+      "integration_status": "native adapter with official Qwen3.5-4B reference checkpoint; local snapshot files verified, inference not tested",
       "max_options": 16,
-      "max_tokens": 4096
+      "context_policy": "model_max"
     },
     "djev": {
       "display_name": "djev (Maisa, diffusion-gemma)",
-      "backend": "jev_http",
+      "backend": "djev_upstream",
+      "weights": "google/diffusiongemma-26B-A4B-it",
+      "weights_env": "DJEV_WEIGHTS",
+      "request_model": "dgemma",
+      "max_options": 26,
+      "integration_status": "unchanged pinned upstream API and matching local inference backend",
+      "context_policy": "model_max",
       "endpoint_env": "DJEV_ENDPOINT",
-      "request_model": "jev-latest",
-      "key_env": "DJEV_API_KEY",
-      "integration_status": "requires deployment-specific model alias and compatibility check"
+      "default_endpoint": "http://127.0.0.1:8011/v1/systemone",
+      "upstream_commit": "e5841cf41e9211608e698492658685c36e24e77a",
+      "timeout": 600,
+      "upstream_engine": {
+        "vllm_commit": "1b3b88ec2b7457aa030db4d0e7d8aaf04f6d0fb8",
+        "dockerfile_commit": "a0ddd7d928298eccef2c17153b00b5636b6d996a"
+      }
     },
     "laya": {
       "display_name": "Laya",
-      "backend": "jev_http",
-      "endpoint_env": "LAYA_ENDPOINT",
-      "request_model": "jev-latest",
-      "integration_status": "pin screenshot-era base checkpoint; current router is not equivalent"
+      "backend": "laya",
+      "weights": "convaiinnovations/laya",
+      "request_model": "convaiinnovations/laya",
+      "integration_status": "in-process laya.load of typed-decisions checkpoint",
+      "max_options": 255,
+      "subfolder": "typed-decisions",
+      "context_policy": "model_max"
     },
     "open_alternative_jev": {
       "display_name": "open-alternative-jev (Qwen3.5-4B)",
@@ -42,43 +56,63 @@
       "load_kwargs": {
         "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
       },
-      "integration_status": "source-checked so1 native adapter; real weights not tested"
-    },
-    "system_one_open": {
-      "display_name": "system-one-open",
-      "backend": "system_one_http",
-      "request_model": "system-one-open",
-      "integration_status": "source-checked /decide translator; run identity must be pinned",
-      "endpoint_env": "SYSTEM_ONE_OPEN_ENDPOINT",
-      "max_options": 52
+      "integration_status": "native adapter with official Qwen3.5-4B reference checkpoint; local snapshot files verified, inference not tested",
+      "context_policy": "model_max",
+      "mode": "packed"
     },
     "openjev": {
       "display_name": "OpenJev (razorback16)",
-      "backend": "jev_http",
-      "endpoint_env": "OPENJEV_ENDPOINT",
+      "backend": "openjev_upstream",
+      "weights": "nvidia/diffusiongemma-26B-A4B-it-NVFP4",
+      "weights_env": "OPENJEV_WEIGHTS",
       "request_model": "openjev-latest",
-      "integration_status": "self-hosted /v1/systemone; pin deployment revision"
+      "max_options": 255,
+      "integration_status": "unchanged pinned upstream API and matching local inference backend",
+      "context_policy": "model_max",
+      "endpoint_env": "OPENJEV_ENDPOINT",
+      "default_endpoint": "http://127.0.0.1:8012/v1/systemone",
+      "upstream_commit": "a0ddd7d928298eccef2c17153b00b5636b6d996a",
+      "timeout": 600,
+      "upstream_engine": {
+        "vllm_commit": "1b3b88ec2b7457aa030db4d0e7d8aaf04f6d0fb8",
+        "dockerfile_commit": "a0ddd7d928298eccef2c17153b00b5636b6d996a"
+      }
     },
     "jeff": {
       "display_name": "jeff",
-      "backend": "jev_http",
-      "endpoint_env": "JEFF_ENDPOINT",
-      "request_model": "jev-latest",
-      "integration_status": "self-hosted compatible service; pin checkpoint"
+      "backend": "jeff",
+      "weights": "GestaltLabs/Jeff-1",
+      "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+      "request_model": "jeff",
+      "integration_status": "in-process PEFT load; no HTTP",
+      "max_options": 255,
+      "context_policy": "model_max"
     },
     "kev_0_6b": {
       "display_name": "kev 0.6B",
-      "backend": "bridge",
-      "command_env": "KEV_06_BRIDGE_ARGV",
+      "backend": "kev",
+      "weights": "jaredpalmer/kev-0.6b",
       "request_model": "kev-0.6b",
-      "integration_status": "historical exact checkpoint unresolved; do not replace with current 0.8B/4B"
+      "context_policy": "model_max",
+      "integration_status": "in-process load of jaredpalmer/kev-0.6b; not the 0.8B or 4B checkpoints",
+      "max_options": 255
     },
     "openjev_sglang": {
       "display_name": "openjev-sglang",
-      "backend": "jev_http",
-      "endpoint_env": "OPENJEV_SGLANG_ENDPOINT",
+      "backend": "sglang_upstream",
+      "weights": "nvidia/Qwen3.6-35B-A3B-NVFP4",
+      "weights_env": "OPENJEV_SGLANG_WEIGHTS",
       "request_model": "jev-latest",
-      "integration_status": "Qwen3.6-35B-A3B service; confirm checkpoint and alias"
+      "max_options": 64,
+      "integration_status": "unchanged pinned upstream API and matching local inference backend",
+      "context_policy": "model_max",
+      "endpoint_env": "OPENJEV_SGLANG_ENDPOINT",
+      "default_endpoint": "http://127.0.0.1:8013/v1/systemone",
+      "upstream_commit": "5f633dccaf5a45c7e0a45d06653d019bb6bf1441",
+      "timeout": 600,
+      "upstream_engine": {
+        "image": "lmsysorg/sglang:v0.5.19-cu130"
+      }
     }
   }
 }

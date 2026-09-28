@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from src.dataset.schema import request
-from src.model.context import estimate_tokens, fit_record
+from src.model.model_utils import estimate_tokens, fit_record
 from src.model.jev import Jev
 from src.model.registry import load_model
 from test_adapters import Body

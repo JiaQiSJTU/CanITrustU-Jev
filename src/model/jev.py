@@ -1,46 +1,12 @@
-"""First-party Jev and explicitly configured System One-compatible endpoints."""
+"""First-party Jev HTTP evaluation adapter."""
 import json
 import os
 import time
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-from .base import CallFailure, parse_json_or_none, parse_response
-from .context import fit_record
+from .model_utils import CallFailure, parse_response, fit_record, _header_map, _decode_return
 from src.dataset.schema import request
 
-_HIDDEN_HEADERS = {'authorization', 'cookie', 'set-cookie', 'proxy-authorization', 'x-api-key'}
-
-
-def _redact(value, secret):
-    if not secret:
-        return value
-    if isinstance(value, str):
-        return value.replace(secret, '[redacted]')
-    if isinstance(value, list):
-        return [_redact(v, secret) for v in value]
-    if isinstance(value, dict):
-        return {_redact(k, secret) if isinstance(k, str) else k: _redact(v, secret) for k, v in value.items()}
-    return value
-
-
-def _header_map(headers, secret):
-    if headers is None:
-        return {}
-    kept = {}
-    for key, value in headers.items():
-        if str(key).lower() in _HIDDEN_HEADERS:
-            continue
-        kept[str(key)] = _redact(value, secret)
-    return kept
-
-
-def _decode_return(body, secret):
-    body = body or b''
-    text = body.decode('utf-8', errors='replace')
-    parsed = parse_json_or_none(text)
-    if parsed is not None:
-        parsed = _redact(parsed, secret)
-    return _redact(text, secret), parsed
 
 class Jev:
     def __init__(self, endpoint='https://api.typesafe.ai/v1/systemone', model='jev-1.13.0',
@@ -105,20 +71,3 @@ class Jev:
                 raise CallFailure(f'HTTP {e.code} from decision endpoint', text, response, e.code, response_headers) from None
             except CallFailure:
                 raise
-
-
-class SystemOneOpen(Jev):
-    """Translate the source-verified /decide list protocol."""
-    def make_payload(self, record):
-        official = request(record, self.model)
-        q = official['questions']['decision']
-        q['id'] = 'decision'
-        if q['type'] == 'choice':
-            q['options'] = q.pop('criteria')
-        return {'state': official['state'], 'questions': [q]}
-
-    def normalize_response(self, response):
-        answers = response['answers']
-        if not isinstance(answers, list) or len(answers) != 1 or answers[0].get('id') != 'decision':
-            raise ValueError('Expected one identified system-one-open answer')
-        return {**response, 'answers': {'decision': answers[0]}}
