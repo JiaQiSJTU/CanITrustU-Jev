@@ -158,7 +158,7 @@ djev, OpenJev and OpenJev SGLang now call their unchanged, commit-pinned upstrea
 
 `configs/upstream_sources.json` pins and hashes the upstream sources. OpenJev builds its original Dockerfiles, including its vLLM patches at commit `1b3b88ec2b7457aa030db4d0e7d8aaf04f6d0fb8`. djev uses that compatible structured-diffusion engine revision (djev documents the required vLLM feature, but does not pin an engine commit). SGLang uses the upstream `lmsysorg/sglang:v0.5.19-cu130` image and frozen API dependency lock. Image tags and system package repositories are not immutable; each actual launch records the resulting image ID.
 
-Machine-specific evaluation shell scripts stay local and are not versioned. The portable server scripts below are versioned. Set the corresponding weight environment variable to your checkpoint directory (or pass `--weights` when serving). An optional ignored `configs/local_backend_weights.json` maps model names to local weight directories for the server launcher.
+Portable evaluation and server scripts use `script/<name>.sh` and are versioned. Machine-specific weight paths live only in ignored `script/<name>_hgroup.sh` wrappers, which set environment variables and call the portable scripts. On hgroup, use `bash script/serve_djev_hgroup.sh` to serve and `bash script/djev_hgroup.sh` to evaluate (likewise for OpenJev and OpenJev SGLang). Elsewhere, set the corresponding weight environment variable to your checkpoint directory, or pass `--weights` when serving. The server launcher does not read local weight configuration files.
 
 From the repository root, build once, then start the selected backend in the foreground:
 

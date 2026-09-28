@@ -9,9 +9,8 @@
 !/uv.lock
 !/script/
 /script/*
-!/script/serve_djev.sh
-!/script/serve_openjev.sh
-!/script/serve_openjev_sglang.sh
+!/script/*.sh
+/script/*_hgroup.sh
 !/script/serve_upstream.py
 !/script/backend/
 !/script/backend/*

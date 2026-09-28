@@ -19,7 +19,6 @@ SOURCES = json.loads((ROOT / 'configs/upstream_sources.json').read_text())
 CACHE = ROOT / '.deps/native-upstream'
 PORTS = {'djev': 8011, 'openjev': 8012, 'openjev_sglang': 8013}
 WEIGHTS = {'djev': 'DJEV_WEIGHTS', 'openjev': 'OPENJEV_WEIGHTS', 'openjev_sglang': 'OPENJEV_SGLANG_WEIGHTS'}
-LOCAL_WEIGHTS = ROOT / 'configs/local_backend_weights.json'
 
 
 def image_name(name):
@@ -129,8 +128,7 @@ def main():
                 subprocess.run(command, check=True)
         return
     key = WEIGHTS[name]
-    local_weights = json.loads(LOCAL_WEIGHTS.read_text()) if LOCAL_WEIGHTS.is_file() else {}
-    selected_weights = args.weights or os.environ.get(key) or local_weights.get(name)
+    selected_weights = args.weights or os.environ.get(key)
     if not selected_weights:
         parser.error(f'Set --weights or {key} to a local checkpoint directory')
     weights = Path(selected_weights).resolve()
