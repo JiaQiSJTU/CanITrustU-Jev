@@ -94,16 +94,18 @@ Generated context and paraphrases may introduce semantic deviations. The perturb
 
 **Six models. Full coverage. No failed requests.** Each model has **14,622 / 14,622 successful decisions**, covering **2,437 / 2,437 questions** with all six versions present, no duplicate records, and no excluded questions. Results below use the final merged outputs, including incremental repairs for overlong inputs.
 
-**Mean Accuracy** measures correctness across all six versions. **Strict Accuracy** counts a question as correct only when **all six versions are correct**. Higher is better. Models are sorted by Mean Accuracy; bold marks the best value in each column.
+**Mean Accuracy** measures correctness across all six versions. **Strict Accuracy** counts a question as correct only when **all six versions are correct**. Higher is better. Models are sorted by Mean Accuracy; bold marks the best value in each metric column.
 
-| Model / Method | Mean Accuracy ↑ | Strict Accuracy ↑ | Correct Decisions | All-Six-Correct Questions |
-|---|---:|---:|---:|---:|
-| Decider-4B v2.1 | **54.28%** | **45.75%** | 7,937 / 14,622 | 1,115 / 2,437 |
-| SemIf (Qwen3.5-4B)† | 51.98% | 37.42% | 7,600 / 14,622 | 912 / 2,437 |
-| so1 (Qwen3.5-4B) | 51.65% | 36.64% | 7,552 / 14,622 | 893 / 2,437 |
-| Kev-4B r10 | 50.67% | 39.60% | 7,409 / 14,622 | 965 / 2,437 |
-| Kev-0.6B | 46.31% | 35.00% | 6,772 / 14,622 | 853 / 2,437 |
-| Laya (typed-decisions) | 42.27% | 27.78% | 6,180 / 14,622 | 677 / 2,437 |
+Model names link to the original code repositories; backbones link to their Hugging Face model pages. Backbone names identify the checkpoints used in these runs, including the distinction between base and post-trained models.
+
+| Model / Method | Backbone | Mean Accuracy ↑ | Strict Accuracy ↑ |
+|---|---|---:|---:|
+| [Decider-4B v2.1](https://github.com/Mapika/decider) | [Qwen3.5-4B-Base](https://huggingface.co/Qwen/Qwen3.5-4B-Base) | **54.28%** | **45.75%** |
+| [SemIf](https://github.com/TheoLeeCJ/SemIf-OpenJev)† | [Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) | 51.98% | 37.42% |
+| [so1](https://github.com/ikermoel/open-alternative-jev) | [Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) | 51.65% | 36.64% |
+| [Kev-4B r10](https://github.com/jaredpalmer/kev) | [Qwen3.5-4B-Base](https://huggingface.co/Qwen/Qwen3.5-4B-Base) | 50.67% | 39.60% |
+| [Kev-0.6B](https://github.com/jaredpalmer/kev) | [Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) | 46.31% | 35.00% |
+| [Laya (typed-decisions)](https://github.com/NandhaKishorM/laya) | [ModernBERT-large](https://huggingface.co/answerdotai/ModernBERT-large) | 42.27% | 27.78% |
 
 **Evaluation protocol.** Each adapter uses its model's native decision inference. Inputs exceeding the configured context budget are left-clipped. These are single-run results, without repeated-run uncertainty estimates. Jeff remains stopped with partial predictions and is not ranked. No completed thinking-on/off comparison is reported here.
 
@@ -112,16 +114,16 @@ Generated context and paraphrases may introduce semantic deviations. The perturb
 <details>
 <summary>Confidence-based abstention: scores and coverage trade-off</summary>
 
-The offline abstention policy passes a decision if it is correct **or** the provider returns `confidence < 0.5`. Strict aggregation requires all six versions to pass. This metric rewards abstention, so a high score does not by itself imply better decisions. We preserve provider confidence rather than replacing it with the maximum class probability; confidence definitions can differ between providers.
+**AAA = Abstention-Aware Accuracy.** The offline abstention policy passes a decision if it is correct **or** the provider returns `confidence < 0.5`. Strict aggregation requires all six versions to pass. This metric rewards abstention, so a high score does not by itself imply better decisions. We preserve provider confidence rather than replacing it with the maximum class probability; confidence definitions can differ between providers.
 
-| Model / Method | Mean Abstention-Aware Accuracy ↑ | Strict Abstention-Aware Accuracy ↑ | Abstention Rate |
+| Model / Method | Mean AAA ↑ | Strict AAA ↑ | Abstention Rate |
 |---|---:|---:|---:|
-| Decider-4B v2.1 | 77.79% | 70.82% | 36.55% |
-| SemIf (Qwen3.5-4B)† | N/A | N/A | N/A |
-| so1 (Qwen3.5-4B) | 66.26% | 47.44% | 18.44% |
-| Kev-4B r10 | 93.34% | 88.59% | 73.10% |
-| Kev-0.6B | 79.79% | 69.63% | 43.59% |
-| Laya (typed-decisions) | 99.85% | 99.26% | 98.14% |
+| [Decider-4B v2.1](https://github.com/Mapika/decider) | 77.79% | 70.82% | 36.55% |
+| [SemIf](https://github.com/TheoLeeCJ/SemIf-OpenJev)† | N/A | N/A | N/A |
+| [so1](https://github.com/ikermoel/open-alternative-jev) | 66.26% | 47.44% | 18.44% |
+| [Kev-4B r10](https://github.com/jaredpalmer/kev) | 93.34% | 88.59% | 73.10% |
+| [Kev-0.6B](https://github.com/jaredpalmer/kev) | 79.79% | 69.63% | 43.59% |
+| [Laya (typed-decisions)](https://github.com/NandhaKishorM/laya) | 99.85% | 99.26% | 98.14% |
 
 SemIf does not return the provider confidence required by this policy, so its abstention metrics are unavailable. For example, Laya's high abstention-aware score accompanies a **98.14% abstention rate**, rather than high unconditional accuracy.
 

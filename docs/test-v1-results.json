@@ -333,7 +333,9 @@
           "mean_abstention_aware_accuracy": 0.7108843537414966,
           "strict_abstention_aware_accuracy": 0.4897959183673469
         }
-      }
+      },
+      "upstream_repository": "https://github.com/Mapika/decider",
+      "backbone": "Qwen/Qwen3.5-4B-Base"
     },
     {
       "model": "semif",
@@ -658,7 +660,9 @@
           "strict_abstention_aware_accuracy": null,
           "confidence_note": "Abstention metrics unavailable: some included decisions lack provider confidence; class probabilities are not substituted."
         }
-      }
+      },
+      "upstream_repository": "https://github.com/TheoLeeCJ/SemIf-OpenJev",
+      "backbone": "Qwen/Qwen3.5-4B"
     },
     {
       "model": "open_alternative_jev",
@@ -968,7 +972,9 @@
           "mean_abstention_aware_accuracy": 0.6360544217687075,
           "strict_abstention_aware_accuracy": 0.30612244897959184
         }
-      }
+      },
+      "upstream_repository": "https://github.com/ikermoel/open-alternative-jev",
+      "backbone": "Qwen/Qwen3.5-4B"
     },
     {
       "model": "kev_4b",
@@ -1281,7 +1287,9 @@
           "mean_abstention_aware_accuracy": 0.9965986394557823,
           "strict_abstention_aware_accuracy": 0.9795918367346939
         }
-      }
+      },
+      "upstream_repository": "https://github.com/jaredpalmer/kev",
+      "backbone": "Qwen/Qwen3.5-4B-Base"
     },
     {
       "model": "kev_0_6b",
@@ -1591,7 +1599,9 @@
           "mean_abstention_aware_accuracy": 0.9115646258503401,
           "strict_abstention_aware_accuracy": 0.8163265306122449
         }
-      }
+      },
+      "upstream_repository": "https://github.com/jaredpalmer/kev",
+      "backbone": "Qwen/Qwen3-0.6B-Base"
     },
     {
       "model": "laya",
@@ -1900,7 +1910,9 @@
           "mean_abstention_aware_accuracy": 1.0,
           "strict_abstention_aware_accuracy": 1.0
         }
-      }
+      },
+      "upstream_repository": "https://github.com/NandhaKishorM/laya",
+      "backbone": "answerdotai/ModernBERT-large"
     }
   ]
 }
