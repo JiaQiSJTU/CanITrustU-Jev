@@ -91,4 +91,5 @@ def load_model(name, config):
         raise ValueError('Set endpoint environment variable ' + entry['endpoint_env'])
     adapter = SystemOneOpen if entry['backend'] == 'system_one_http' else Jev
     return adapter(endpoint=endpoint, model=entry['request_model'], key_env=entry.get('key_env'),
-                   max_input_tokens=entry.get('max_input_tokens')), entry
+                   max_input_tokens=entry.get('max_input_tokens'),
+                   probability_decimals=entry.get('probability_decimals', 4)), entry

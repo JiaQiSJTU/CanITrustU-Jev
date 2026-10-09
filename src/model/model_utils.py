@@ -81,12 +81,12 @@ def probability_sum_tolerance(option_count, decimals=DEFAULT_PROBABILITY_DECIMAL
     """Shared acceptance budget for independently rounded choice probabilities.
 
     Four decimals is the default validation policy, not inferred provider
-    precision. Adapters can declare a finer precision when it is known.
+    precision. Adapters can explicitly declare a different rounding precision.
     """
     if type(option_count) is not int or not 2 <= option_count <= 255:
         raise ValueError('Choice must contain 2..255 options')
-    if type(decimals) is not int or not 4 <= decimals <= 15:
-        raise ValueError('Probability precision must be an integer from 4 to 15')
+    if type(decimals) is not int or not 2 <= decimals <= 15:
+        raise ValueError('Probability precision must be an integer from 2 to 15')
     return option_count * 0.5 * 10 ** (-decimals) + 1e-12
 
 def parse_response(payload, options, elapsed=0.0, *, probability_decimals=DEFAULT_PROBABILITY_DECIMALS):
@@ -167,7 +167,7 @@ _HISTORY_LISTS = ('messages', 'trajectory', 'previous_actions', 'context')
 
 _HISTORY_STRINGS = ('action_history', 'utterances')
 
-def estimate_tokens(text):
+def _token_counts(text):
     letters = digits = punct = other = 0
     for ch in text:
         if ch.isspace():
@@ -181,7 +181,90 @@ def estimate_tokens(text):
             punct += 1
         else:
             other += 1
+    return letters, digits, punct, other
+
+
+def _estimated_tokens(counts):
+    letters, digits, punct, other = counts
     return math.ceil(0.30 * letters + digits + 0.60 * punct + other + 800)
+
+
+def estimate_tokens(text):
+    return _estimated_tokens(_token_counts(text))
+
+
+class _JsonTokenCounter:
+    """Count JSON without rendering unchanged strings on every fit check.
+
+    Cache immutable leaves only: mutable dictionaries/lists are traversed again.
+    `embedded` counts an indent=2 JSON document inside a JSON string, including
+    escaped quotes, backslashes and newlines. Indentation spaces have no weight.
+    """
+    def __init__(self):
+        self.cache = {}
+
+    def fragment(self, text, embedded):
+        key = ('fragment', text, embedded)
+        if key not in self.cache:
+            wire = json.dumps(text, ensure_ascii=False)[1:-1] if embedded else text
+            self.cache[key] = _token_counts(wire)
+        return self.cache[key]
+
+    def count(self, value, embedded=False):
+        if isinstance(value, dict) and all(isinstance(k, str) for k in value):
+            items = [(self.count(k, embedded), self.count(v, embedded)) for k, v in value.items()]
+            parts = [part for pair in items for part in pair]
+            syntax = '{}' + ':' * len(value) + ',' * max(0, len(value) - 1)
+        elif isinstance(value, (list, tuple)):
+            parts = [self.count(v, embedded) for v in value]
+            syntax = '[]' + ',' * max(0, len(value) - 1)
+        else:
+            # Non-string mapping keys use the encoder's own coercion rules.
+            if isinstance(value, dict):
+                return self.fragment(json.dumps(value, ensure_ascii=False,
+                                                indent=2 if embedded else None), embedded)
+            key = (type(value), value, embedded)
+            if key not in self.cache:
+                self.cache[key] = self.fragment(json.dumps(value, ensure_ascii=False), embedded)
+            return self.cache[key]
+        if embedded and value:
+            syntax += '\n' * (len(value) + 1)
+        total = list(self.fragment(syntax, embedded))
+        for part in parts:
+            for i, n in enumerate(part):
+                total[i] += n
+        return tuple(total)
+
+
+def _state_token_counter(record, payload, payload_of):
+    """Optimize callbacks with an unchanged top-level state and fixed envelope.
+
+    A probe checks that replacing the state does not change the rest of the
+    payload. Custom callbacks that transform/duplicate state keep the old path.
+    """
+    if not isinstance(payload, dict) or payload.get('state') != record['state']:
+        return None
+    marker = {'__truncation_counter_probe__': True}
+    try:
+        probe = payload_of({**record, 'state': marker})
+        if not isinstance(probe, dict) or probe.get('state') != marker:
+            return None
+        if {k: v for k, v in probe.items() if k != 'state'} != {k: v for k, v in payload.items() if k != 'state'}:
+            return None
+    except (TypeError, ValueError, KeyError, AttributeError):
+        return None
+    counter = _JsonTokenCounter()
+    total = counter.count(payload)
+    state = counter.count(payload['state'])
+    fixed = tuple(a - b for a, b in zip(total, state))
+
+    def tokens(value, embedded=False):
+        counts = counter.count(value, embedded)
+        if embedded:
+            # The serialized state's surrounding JSON-string quotes.
+            counts = (counts[0], counts[1], counts[2] + 2, counts[3])
+        return _estimated_tokens(tuple(a + b for a, b in zip(fixed, counts)))
+    return tokens
 
 def fit_record(record, max_tokens, payload_of=None):
     """Copy `record` only when its request exceeds `max_tokens`.
@@ -196,14 +279,18 @@ def fit_record(record, max_tokens, payload_of=None):
     def tokens(rec):
         return estimate_tokens(json.dumps(payload_of(rec), ensure_ascii=False))
 
-    before = tokens(record)
+    initial_payload = payload_of(record)
+    before = estimate_tokens(json.dumps(initial_payload, ensure_ascii=False))
     if before <= max_tokens:
         return record, None
     fitted = copy.deepcopy(record)
     editable, as_json = _unwrap(fitted['state'])
     changed = {'dropped': 0, 'trimmed': 0}
+    state_tokens = _state_token_counter(record, initial_payload, payload_of)
 
     def under_limit():
+        if state_tokens is not None:
+            return state_tokens(editable, as_json) <= max_tokens
         if as_json and not isinstance(editable, str):
             fitted['state'] = json.dumps(editable, ensure_ascii=False, indent=2)
         else:
@@ -218,6 +305,8 @@ def fit_record(record, max_tokens, payload_of=None):
 
         def under():
             fitted['state'] = box[0]
+            if state_tokens is not None:
+                return state_tokens(box[0]) <= max_tokens
             return tokens(fitted) <= max_tokens
 
         changed['trimmed'] += _cut(lambda: box[0], setter, under)
@@ -225,15 +314,18 @@ def fit_record(record, max_tokens, payload_of=None):
     elif isinstance(editable, dict):
         _truncate_mapping(editable, under_limit, changed)
         under_limit()
+        fitted['state'] = json.dumps(editable, ensure_ascii=False, indent=2) if as_json else editable
     elif isinstance(editable, list):
         holder = {'messages': editable}
 
         def under():
-            fitted['state'] = holder['messages']
+            if state_tokens is not None:
+                return state_tokens(holder['messages'], as_json) <= max_tokens
+            fitted['state'] = json.dumps(holder['messages'], ensure_ascii=False, indent=2) if as_json else holder['messages']
             return tokens(fitted) <= max_tokens
 
         _shrink_list(holder, 'messages', under, changed)
-        fitted['state'] = holder['messages']
+        fitted['state'] = json.dumps(holder['messages'], ensure_ascii=False, indent=2) if as_json else holder['messages']
     after = tokens(fitted)
     info = {'max_input_tokens': max_tokens, 'estimated_tokens_before': before,
             'estimated_tokens_after': after, 'dropped_history_items': changed['dropped'],
@@ -373,8 +465,8 @@ def _cut(getter, setter, fits):
         return 0
     setter('')
     if not fits():
-        setter(text)
-        return 0
+        # Keep this reduction while subsequent fields are shortened as well.
+        return len(text)
     lo, hi = 0, len(text)
     while lo < hi:
         mid = (lo + hi) // 2

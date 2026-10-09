@@ -2,7 +2,7 @@
 
 **CITY-Jev (Can I Trust You Jev)** asks a simple question: **fast decisions are useful, but can we trust them?** We evaluate [Jev-style System One models](https://typesafe.ai/blog/introducing-system-one-models-and-jev) at typical decision points in general agentic workflows: choosing an action, judging a step, verifying an outcome, assessing evidence, and checking safety. We test whether those decisions are correct, whether they hold up when inputs are reworded or reformatted, and how much confidence-based abstention helps.
 
-[![🤗 Hugging Face Dataset: Coming Soon](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset%20%28Coming%20Soon%29-FFD21E?style=flat-square)](https://huggingface.co/datasets/KikiNLP/CanITrustYou-Jev)
+[![🤗 Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-FFD21E?style=flat-square)](https://huggingface.co/datasets/KikiNLP/CanITrustYou-Jev)
 
 <p align="center">
   <img src="assets/city-jev-teaser.png" alt="CITY-Jev evaluates Jev-style models at five typical decision points in general agentic workflows: safety analysis, evidence assessment, action selection, process evaluation, and outcome verification. The workflow is illustrative; evaluation is at the decision level. Original and perturbed inputs are scored using Accuracy and Abstention-Aware Accuracy, with strict and mean aggregation." width="100%">
@@ -12,15 +12,42 @@
 
 **One question. Six input versions. Does the decision hold up?**
 
-We adapt **10 upstream data sources** into a common candidate-selection format: **2,000 original questions**, each paired with **five perturbations**, for **12,000 planned decision evaluations**. The perturbations change option order, option identifiers, state formatting, auxiliary context, or instruction wording, with the aim of preserving the correct answer. We report Accuracy and Abstention-Aware Accuracy using both **worst-case and mean scores** across the six inputs, broken down by application scenario, decision task, answer format, and source dataset.
+We adapt **13 upstream data sources** in the published `test-v1` split into a common candidate-selection format: **2,437 original questions**, each paired with **five perturbations**, for **14,622 decision evaluations**. The perturbations change option order, option identifiers, state formatting, auxiliary context, or instruction wording, with the aim of preserving the correct answer. We report Accuracy and Abstention-Aware Accuracy using both **worst-case and mean scores** across the six inputs, broken down by application scenario, decision task, answer format, and source dataset.
 
-This is an independent evaluation of adapted tasks; its scores are not the official scores of the upstream benchmarks. The results below come from a single run of **Jev 1.13.0**. Configurations for other model adapters do not imply completed evaluations.
+This is an independent evaluation of adapted tasks; its scores are not the official scores of the upstream benchmarks. The current results cover **seven completed model evaluations on `test-v1`**. An earlier Jev 1.13.0 evaluation used a different 2,000-question dataset and is archived separately below; its scores are not directly comparable. Configurations for other model adapters do not imply completed evaluations.
 
 > **Review status:** This project was developed primarily using automated tools, with partial human involvement and review. Its data transformations, perturbations, evaluation logic, reported results, and documentation require further verification. The current content should be considered preliminary.
 
 ## Data Sources
 
-Counts below refer to **original questions in this evaluation**, before excluding failed requests. They are not the sizes of the upstream datasets and do not necessarily represent independent trajectories. Links point to upstream projects or dataset repositories.
+The current `test-v1` split contains **2,437 original questions from 13 sources**. Counts describe adapted questions, not upstream dataset sizes or necessarily independent trajectories. The exact evaluated file and per-source counts are recorded in [the results snapshot](docs/test-v1-results.json).
+
+<details>
+<summary>Current test-v1 source counts</summary>
+
+| Dataset ID | Original Questions |
+|---|---:|
+| `agentprocess` | 450 |
+| `agentreward` | 135 |
+| `bfcl` | 200 |
+| `mind2web` | 203 |
+| `weblinx` | 49 |
+| `swetraj` | 100 |
+| `longmemeval` | 250 |
+| `agentharm` | 200 |
+| `injecagent` | 250 |
+| `longrca` | 200 |
+| `rootse` | 100 |
+| `trajerrbench` | 200 |
+| `telbench` | 100 |
+| **Total** | **2,437** |
+
+</details>
+
+<details>
+<summary>Historical source descriptions for the initial 2,000-question Jev evaluation</summary>
+
+These counts belong to the initial evaluation, not `test-v1`. Links point to upstream projects or dataset repositories.
 
 | Source | Dataset ID | Questions | Adapted Task and Answer Format | Ground-Truth Basis |
 |---|---|---:|---|---|
@@ -37,6 +64,8 @@ Counts below refer to **original questions in this evaluation**, before excludin
 | **Total** | | **2,000** | | |
 
 The `gold` answer comes from upstream annotations, execution outcomes, or verifiable rules applied to task configurations. Generative models are used for some expression perturbations, not to generate ground-truth answers. Sampling is limited to locally available data and does not cover every upstream dataset in full. Label distributions are not uniformly balanced.
+
+</details>
 
 ### Classification Dimensions
 
@@ -59,8 +88,60 @@ Each perturbation is applied independently to the original question. The aim is 
 
 Generated context and paraphrases may introduce semantic deviations. The perturbations have not undergone exhaustive human verification of semantic equivalence.
 
-<!-- JEV-ROBUST-RESULTS:START -->
 ## Results
+
+### Current benchmark: test-v1
+
+**Seven models on the same test-v1 input.** All runs contain **14,622 unique records** covering **2,437 questions** and all six versions. The six previously reported models have no failed requests or excluded questions. **Jev 1.13.0 has 14,612 valid responses and 10 retained validation failures**; its scores include **2,428 questions / 14,568 decisions** after excluding 9 affected questions. Results below use the final merged outputs, including retries and repairs for overlong inputs. Valid responses indicate successful evaluation, not necessarily correct answers.
+
+**Mean Accuracy** measures correctness across all six versions. **Strict Accuracy** counts a question as correct only when **all six versions are correct**. Higher is better. Models are sorted by Mean Accuracy; bold marks the best value in each metric column.
+
+Model names link to the original code repositories, or to the provider page for the hosted Jev API; backbones link to their Hugging Face model pages where available. Backbone names identify the checkpoints used in these runs, including the distinction between base and post-trained models. The Jev run records an API model identifier, not a backbone checkpoint.
+
+| Model / Method | Backbone | Mean Accuracy ↑ | Strict Accuracy ↑ |
+|---|---|---:|---:|
+| [Jev 1.13.0](https://typesafe.ai/blog/introducing-system-one-models-and-jev)‡ | Hosted API; checkpoint not recorded | **66.88%** | **61.70%** |
+| [Decider-4B v2.1](https://github.com/Mapika/decider) | [Qwen3.5-4B-Base](https://huggingface.co/Qwen/Qwen3.5-4B-Base) | 54.28% | 45.75% |
+| [SemIf](https://github.com/TheoLeeCJ/SemIf-OpenJev)† | [Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) | 51.98% | 37.42% |
+| [so1](https://github.com/ikermoel/open-alternative-jev) | [Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) | 51.65% | 36.64% |
+| [Kev-4B r10](https://github.com/jaredpalmer/kev) | [Qwen3.5-4B-Base](https://huggingface.co/Qwen/Qwen3.5-4B-Base) | 50.67% | 39.60% |
+| [Kev-0.6B](https://github.com/jaredpalmer/kev) | [Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) | 46.31% | 35.00% |
+| [Laya (typed-decisions)](https://github.com/NandhaKishorM/laya) | [ModernBERT-large](https://huggingface.co/answerdotai/ModernBERT-large) | 42.27% | 27.78% |
+
+**Evaluation protocol.** Each adapter uses its model's native decision inference. Inputs exceeding the configured context budget are left-clipped. These are single-run results, without repeated-run uncertainty estimates. Jeff remains stopped with partial predictions and is not ranked. No completed thinking-on/off comparison is reported here.
+
+**‡ Jev coverage and reuse:** the 10 retained failures have a returned `choice` whose probability is below the maximum; their raw responses remain unchanged, and there are no remaining network failures. The standard complete-six-version rule excludes all 54 decisions from their 9 questions, so Jev's scoring cohort differs slightly from that of the other models. The v1 result reuses **10,966 unchanged successful records** from the initial evaluation where the input record is identical; missing and failed records were evaluated or retried. Earlier successful responses retain their original configurations. The final Jev implementation starts at an estimated 30,720-token input budget, reduces it by 1,024 on length errors, and uses option-count-aware two-decimal probability-sum tolerance. Its generic state-field truncation can also shorten role/name/ID strings, not only history content; fixed instructions and candidate options are preserved. These results reflect that implementation.
+
+**† SemIf candidate adaptation:** for questions exceeding its native **16-option** limit, distractors are deterministically removed while retaining the gold answer. Its candidate sets therefore differ from those of the other models on these questions; treat its ranking with that qualification.
+
+<details>
+<summary>Confidence-based abstention: scores and coverage trade-off</summary>
+
+**AAA = Abstention-Aware Accuracy.** The offline abstention policy passes a decision if it is correct **or** the provider returns `confidence < 0.5`. Strict aggregation requires all six versions to pass. This metric rewards abstention, so a high score does not by itself imply better decisions. We preserve provider confidence rather than replacing it with the maximum class probability; confidence definitions can differ between providers.
+
+| Model / Method | Mean AAA ↑ | Strict AAA ↑ | Abstention Rate |
+|---|---:|---:|---:|
+| [Jev 1.13.0](https://typesafe.ai/blog/introducing-system-one-models-and-jev)‡ | 84.01% | 78.34% | 27.81% |
+| [Decider-4B v2.1](https://github.com/Mapika/decider) | 77.79% | 70.82% | 36.55% |
+| [SemIf](https://github.com/TheoLeeCJ/SemIf-OpenJev)† | N/A | N/A | N/A |
+| [so1](https://github.com/ikermoel/open-alternative-jev) | 66.26% | 47.44% | 18.44% |
+| [Kev-4B r10](https://github.com/jaredpalmer/kev) | 93.34% | 88.59% | 73.10% |
+| [Kev-0.6B](https://github.com/jaredpalmer/kev) | 79.79% | 69.63% | 43.59% |
+| [Laya (typed-decisions)](https://github.com/NandhaKishorM/laya) | 99.85% | 99.26% | 98.14% |
+
+SemIf does not return the provider confidence required by this policy, so its abstention metrics are unavailable. For example, Laya's high abstention-aware score accompanies a **98.14% abstention rate**, rather than high unconditional accuracy.
+
+</details>
+
+**Data and provenance:** [test-v1.jsonl at the evaluated revision](https://huggingface.co/datasets/KikiNLP/CanITrustYou-Jev/blob/6d2deca3a34c8567cf3e419321a3151ad5381de0/test-v1.jsonl) · [Machine-readable metrics, counts, protocols and per-dataset breakdowns](docs/test-v1-results.json). The input SHA-256 is `800c3815e574889fabf22b6260838cf4c8647e707667624c88f089770d9bf16b`. Aggregate correct counts, unique record coverage, and the stated failure/exclusion counts were checked against the merged predictions. The snapshot includes Jev v1's final metrics, artifact hashes, and reuse notes.
+
+<details>
+<summary>Historical Jev 1.13.0 results: initial 2,000-question dataset (not comparable to test-v1)</summary>
+
+The following tables are retained from the initial evaluation. They use different data and must not be compared directly with the six-model table above.
+
+<!-- JEV-ROBUST-RESULTS:START -->
+### Initial Jev Evaluation
 
 Model: `jev-1.13.0`. Confidence threshold: **0.5**.
 
@@ -124,6 +205,8 @@ Abstention rate across included decisions: **19.37%**.
 
 <!-- JEV-ROBUST-RESULTS:END -->
 
+</details>
+
 ## Running the Evaluation
 
 ### 1. Environment Setup
@@ -149,7 +232,9 @@ python -m src.eval --model jev --input data/final/versions.jsonl
 - Prepare evaluation data separately. `--input` accepts a JSONL file or a directory containing gzip JSONL shards and a `manifest.json`.
 - By default, all questions are evaluated with their five perturbations. Use `--limit-bases 10` to evaluate 10 questions first.
 - Jev is accessed through an API; no model weights need to be downloaded. The default model is `jev-1.13.0`. Override the endpoint with `JEV_ENDPOINT`; see [configs/models.json](configs/models.json) for configuration.
-- The current Jev configuration enables an estimated 32,000-token input budget (`"max_input_tokens": 32000`), removing earlier history and, when necessary, trimming text while preserving content near the decision point. Set this value to `null` to disable truncation.
+- The current Jev configuration enables a user-selected estimated 30,720-token input budget (`"max_input_tokens": 30720`). It removes earlier history and, when necessary, trims text while preserving content near the decision point. The Jev adapter caps explicitly configured budgets at 30,720; set this value to `null` to disable truncation. This is a local estimate, not a verified provider context limit, and may still underestimate the provider's input token count.
+- With truncation enabled, Jev retries `max_tokens_exceeded` responses by reducing that sample's estimated budget by 1,024 tokens each time (30,720 → 29,696 → 28,672 → …). It refits the original record, skips budgets producing an identical request, and stops with the provider error if no smaller positive budget can change the state. Successful results record the initial/final budgets and number of length retries. Each new sample starts at the configured budget; other HTTP errors retain their existing retry behavior.
+- Local truncation caches token-count contributions for unchanged JSON leaves and the fixed request envelope, avoiding full request serialization on each cut. Escaping and JSON-string states use the same counting rule as the full serialized request. Cuts across multiple fields accumulate until the budget is met; instructions and options remain unchanged. Custom payload transformations fall back to full-payload counting.
 - Run `python -m src.eval --help` for additional arguments. Local inference dependencies for other models must be installed separately for their respective adapters.
 
 ### Model Scripts and Resume Safety
@@ -215,7 +300,7 @@ Scripts accept additional CLI arguments, for example `bash script/semif.sh --lim
 
 Metrics exclude an entire question if any of its six predictions is missing or failed. Abstention metrics use returned provider confidence, strictly below 0.5; if any included decision lacks confidence, these metrics are `null` rather than substituting class probabilities.
 
-All adapters share an option-count-aware probability-sum check: the default tolerance is `K * 0.00005 + 1e-12` for `K` options, allowing independent rounding to four decimal places. This is a validation policy, not an assumption that every provider actually rounds its output; adapters can specify a finer known precision. Precision is never inferred from response values. The supported range is 2–255 options (maximum default tolerance 0.01275). Probabilities and raw responses are preserved without renormalization. Missing options, non-finite or out-of-range probabilities, non-maximal choices, and invalid confidence remain errors. Failures report the sum, option count, and tolerance. Existing results are not rewritten automatically; resume retries failed predictions under the updated validation policy.
+All adapters share an option-count-aware probability-sum check: tolerance is `K * 0.5 * 10**(-decimals) + 1e-12` for `K` options. The default remains four decimal places (`K * 0.00005 + 1e-12`). Jev explicitly configures `probability_decimals: 2` to accommodate the observed two-decimal outputs, giving tolerance 0.05 for 10 options and 0.08 for 16 options (plus floating-point slack). This is a declared validation policy; precision is never inferred from individual response values. The supported range is 2–255 options. Probabilities and raw responses are preserved without renormalization. Missing options, non-finite or out-of-range probabilities, non-maximal choices, and invalid confidence remain errors. Failures report the sum, option count, and tolerance. Changing precision changes the effective run identity; failed samples can be retried in a new attempt while successful results are explicitly reused with provenance.
 
 ## Scope and Limitations
 

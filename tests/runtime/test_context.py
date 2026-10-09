@@ -56,12 +56,15 @@ class ContextTests(unittest.TestCase):
     def test_json_string_state_and_nested_task_input(self):
         record = _messages(['EARLY ' * 8000, 'LATE'], 1)
         record['state'] = json.dumps(record['state'], ensure_ascii=False, indent=2)
-        fitted, info = fit_record(record, _tokens(_messages(['LATE'], 0)), lambda rec: request(rec, 'jev-1.13.0'))
+        kept = _messages(['LATE'], 0)
+        kept['state'] = json.dumps(kept['state'], ensure_ascii=False, indent=2)
+        fitted, info = fit_record(record, _tokens(kept), lambda rec: request(rec, 'jev-1.13.0'))
         self.assertIsInstance(fitted['state'], str)
         state = json.loads(fitted['state'])
         self.assertEqual(state['messages'][0]['content'], 'LATE')
         self.assertEqual(state['target_message_index'], 0)
         self.assertGreater(info['dropped_history_items'], 0)
+        self.assertLessEqual(info['estimated_tokens_after'], info['max_input_tokens'])
 
         nested = example()
         nested['state'] = {'task_input': {'messages': [{'role': 'user', 'content': 'EARLY ' * 8000},
@@ -104,8 +107,8 @@ class ContextTests(unittest.TestCase):
         config = json.loads(Path('configs/models.json').read_text())
         with patch.dict(os.environ, {'JEV_ENDPOINT': 'http://localhost', 'JEV_API_KEY': 'secret'}):
             model, entry = load_model('jev', config)
-        self.assertEqual(entry['max_input_tokens'], 32000)
-        self.assertEqual(model.max_input_tokens, 32000)
+        self.assertEqual(entry['max_input_tokens'], 30720)
+        self.assertEqual(model.max_input_tokens, 30720)
 
 
 if __name__ == '__main__':

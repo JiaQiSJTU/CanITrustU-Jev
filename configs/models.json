@@ -9,7 +9,8 @@
       "request_model": "jev-1.13.0",
       "key_env": "JEV_API_KEY",
       "max_options": 255,
-      "max_input_tokens": 32000
+      "max_input_tokens": 30720,
+      "probability_decimals": 2
     },
     "semif": {
       "display_name": "SemIf (Qwen3.5-4B)",
